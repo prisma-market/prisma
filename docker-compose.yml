@@ -34,5 +34,18 @@ services:
       - "${AUTH_SERVER_PORT}:${AUTH_SERVER_PORT}"
     restart: unless-stopped
 
+  api-gateway:
+    build:
+      context: ./prisma-api-gateway
+      dockerfile: Dockerfile
+    depends_on:
+      - auth-service
+    environment:
+      PORT: ${GATEWAY_PORT}
+      AUTH_SERVICE_URL: http://auth-service:${AUTH_SERVER_PORT}
+    ports:
+      - "${GATEWAY_PORT}:${GATEWAY_PORT}"
+    restart: unless-stopped
+
 volumes:
   mongodb_data:
