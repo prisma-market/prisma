@@ -30,8 +30,30 @@ services:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin
       JWT_SECRET: ${AUTH_JWT_SECRET}
       JWT_EXPIRES: ${AUTH_JWT_EXPIRES}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      WEB_APP_URL: ${WEB_APP_URL}
     ports:
       - "${AUTH_SERVER_PORT}:${AUTH_SERVER_PORT}"
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./prisma-user-service
+      dockerfile: Dockerfile
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: ${USER_SERVER_PORT}
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin
+      JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_SERVICE_URL: http://auth-service:${AUTH_SERVER_PORT}
+    ports:
+      - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
     restart: unless-stopped
 
   api-gateway:
@@ -40,9 +62,11 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - auth-service
+      - user-service
     environment:
       PORT: ${GATEWAY_PORT}
       AUTH_SERVICE_URL: http://auth-service:${AUTH_SERVER_PORT}
+      USER_SERVICE_URL: http://user-service:${USER_SERVER_PORT}
     ports:
       - "${GATEWAY_PORT}:${GATEWAY_PORT}"
     restart: unless-stopped
