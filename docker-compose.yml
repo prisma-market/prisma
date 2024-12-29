@@ -18,6 +18,20 @@ services:
       timeout: 10s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   # AMQP protocol port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
   auth-service:
     build: 
       context: ./prisma-auth-service
@@ -54,6 +68,30 @@ services:
       AUTH_SERVICE_URL: http://auth-service:${AUTH_SERVER_PORT}
     ports:
       - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
+    restart: unless-stopped
+  
+  email-service:
+    build:
+      context: ./prisma-email-service
+      dockerfile: Dockerfile
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: ${EMAIL_SERVER_PORT}
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
+      RABBITMQ_QUEUE: ${EMAIL_QUEUE_NAME}
+      RABBITMQ_RETRIES: ${EMAIL_QUEUE_RETRIES}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+    ports:
+      - "${EMAIL_SERVER_PORT}:${EMAIL_SERVER_PORT}"
     restart: unless-stopped
 
   api-gateway:
